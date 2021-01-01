@@ -30,7 +30,7 @@ jobs:
         run: |
           expect -c "
           set timeout -1
-          git --help
+          spawn git --help
           "
           git --version
         #  spawn git --help
