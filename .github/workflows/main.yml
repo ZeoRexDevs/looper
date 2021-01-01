@@ -19,24 +19,19 @@ jobs:
       - name: Install Expect
         run: sudo apt-get install -qy expect
       - name: Keepalive
+        timeout-minutes: 140
         run: |
-          cat << EOK > /tmp/keepalive.sh
-          #!/bin/bash
-          # keep this so that it can be killed from other command
-          echo \$$ > /tmp/keepalive.pid
-          # keepalive loop
           while true; do
             printf " \n" && sleep 1200
-          done
-          EOK
-          cat /tmp/keepalive.sh
-          chmod a+x /tmp/keepalive.sh
-      - name: Try Run loop
-        run: |
-          /tmp/keepalive.sh & printf "Go\n"
+          done &
+          git --version
       - name: Expect
+        timeout-minutes: 340
         run: |
-          expect -c "set timeout -1"
+          expect -c "
+          set timeout -1
+          git --help
+          "
           git --version
         #  spawn git --help
         #  set timeout -1
