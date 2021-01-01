@@ -22,8 +22,8 @@ jobs:
         timeout-minutes: 140
         run: |
           while true; do
-            printf " \n" && sleep 1200
-          done &
+            printf ".\n" && sleep 1200
+          done
           git --version
       - name: Expect
         timeout-minutes: 340
