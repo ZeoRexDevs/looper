@@ -21,6 +21,7 @@ jobs:
       - name: Try Run loop
         run: |
           expect -c "
+          spawn git --version
           set timeout -1
           catch wait result
           interact"
