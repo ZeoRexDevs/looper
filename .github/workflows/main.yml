@@ -16,8 +16,8 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       #- uses: rokibhasansagar/actions_cleanup-ghactions@v1
-      #- name: Install Expect
-        #run: sudo apt-get install -qy expect
+      - name: Install Expect
+        run: sudo apt-get install -qy expect
       - name: Keepalive
         run: |
           cat << EOK > /tmp/keepalive.sh
@@ -29,11 +29,15 @@ jobs:
             printf " \n" && sleep 1200
           done
           EOK
+          cat /tmp/keepalive.sh
           chmod a+x /tmp/keepalive.sh
       - name: Try Run loop
         run: |
-          /tmp/keepalive.sh & printf " \n"
-        #  expect -c "
+          /tmp/keepalive.sh & printf "Go\n"
+      - name: Expect
+        run: |
+          expect -c "set timeout -1"
+          git --version
         #  spawn git --help
         #  set timeout -1
         #  interact"
