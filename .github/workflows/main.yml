@@ -29,6 +29,7 @@ jobs:
             printf " \n" && sleep 1200
           done
           EOK
+          chmod a+x /tmp/keepalive.sh
       - name: Try Run loop
         run: |
           /tmp/keepalive.sh & printf " \n"
