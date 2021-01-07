@@ -32,7 +32,15 @@ jobs:
       - name: test
         run: |
           printenv | sort
+          echo -e "\n\n"
+          cat ${GITHUB_ENV}
+          echo -e "\n\n"
+          cat ${GITHUB_PATH}
+          echo -e "\n\n"
+          ls -lAog /home/runner/bin/ || true
+          echo -e "\n\n"
           which repo || command -v repo
+          echo -e "\n\n"
       # Repo sync and Build Recovery/Boot Image
       # It tries to output `${OUTPUT_DIR}` as a environment variable for later use
       - uses: rokibhasansagar/recovery-builder_actions@main
