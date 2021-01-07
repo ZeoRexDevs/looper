@@ -26,9 +26,13 @@ jobs:
       # Checkout this repository
       - uses: actions/checkout@v2
       # Cleanup The Workspace Using Custom Composite Run Actions
-      - uses: rokibhasansagar/slimhub_actions@main
+      #- uses: rokibhasansagar/slimhub_actions@main
       # Initialize Build Environment
       - uses: rokibhasansagar/build-env_actions@main
+      - name: test
+        run: |
+          printenv | sort
+          which repo || command -v repo
       # Repo sync and Build Recovery/Boot Image
       # It tries to output `${OUTPUT_DIR}` as a environment variable for later use
       - uses: rokibhasansagar/recovery-builder_actions@main
