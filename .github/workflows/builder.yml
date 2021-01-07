@@ -28,18 +28,16 @@ jobs:
       # Cleanup The Workspace Using Custom Composite Run Actions
       #- uses: rokibhasansagar/slimhub_actions@main
       # Initialize Build Environment
+      - run: echo "TESS=Data" >> $GITHUB_ENV
+      - run: echo $TESS || echo "not found"
+      - run: echo ${{ env.TESS }} || echo "not found"
+      - run: echo dummy
       - uses: rokibhasansagar/build-env_actions@main
       - name: test
         run: |
           set -v
           source /home/runner/.bashrc
           printenv | sort
-          echo -e "\n\n"
-          file ${GITHUB_ENV}; cat ${GITHUB_ENV}
-          echo -e "\n\n"
-          file ${GITHUB_PATH}; cat ${GITHUB_PATH}
-          echo -e "\n\n"
-          ls -lAog /home/runner/bin/ || true
           echo -e "\n\n"
           which repo || command -v repo
           echo -e "\n\n"
