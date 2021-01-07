@@ -28,18 +28,14 @@ jobs:
       # Cleanup The Workspace Using Custom Composite Run Actions
       #- uses: rokibhasansagar/slimhub_actions@main
       # Initialize Build Environment
-      - run: echo "TESS=Data" >> $GITHUB_ENV
-      - run: echo $TESS || echo "not found"
-      - run: echo ${{ env.TESS }} || echo "not found"
-      - run: echo dummy
       - uses: rokibhasansagar/build-env_actions@main
       - name: test
         run: |
           set -v
-          source /home/runner/.bashrc
+          source /home/runner/.bashrc || true
           printenv | sort
           echo -e "\n\n"
-          which repo || command -v repo
+          echo ${CCACHE_DIR}
           echo -e "\n\n"
           set +v
       # Repo sync and Build Recovery/Boot Image
