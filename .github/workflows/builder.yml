@@ -29,31 +29,23 @@ jobs:
       #- uses: rokibhasansagar/slimhub_actions@main
       # Initialize Build Environment
       - uses: rokibhasansagar/build-env_actions@main
-      - name: test
-        run: |
-          set -v
-          source /home/runner/.bashrc || true
-          printenv | sort
-          echo -e "\n\n"
-          echo ${CCACHE_DIR}
-          echo -e "\n\n"
-          set +v
       # Repo sync and Build Recovery/Boot Image
-      # It tries to output `${OUTPUT_DIR}` as a environment variable for later use
-      - uses: rokibhasansagar/recovery-builder_actions@main
-        env:
+      # It tries to output `output_dir` as environment variable for later use
+      - id:: 'builder'
+        uses: rokibhasansagar/recovery-builder_actions@main
+        with:
           # If you want to retain any of these variables for next steps, use them in jobs.env instead
-          MANIFEST_URL: 'https://github.com/PitchBlackRecoveryProject/manifest_pb'
-          MANIFEST_BRANCH: 'android-6.0'
+          manifest_url: 'https://github.com/PitchBlackRecoveryProject/manifest_pb'
+          manifest_branch: 'android-6.0'
           # EXCL_GRP: ''
-          DT_LINK: 'https://github.com/PitchBlackRecoveryProject/android_device_WALTON_Primo_RX5'
-          DT_BR: 'android-6.0-dev'
-          VENDOR: 'WALTON'
-          CODENAME: 'Primo_RX5'
+          dt_link: 'https://github.com/PitchBlackRecoveryProject/android_device_WALTON_Primo_RX5'
+          dt_br: 'android-6.0-dev'
+          vendor: 'WALTON'
+          codename: 'Primo_RX5'
           # KERNEL_LINK: ''
           # KERNEL_BR: ''
-          FLAVOR: 'userdebug'
-          TARGET: 'recoveryimage'
+          flavor: 'userdebug'
+          target: 'recoveryimage'
       - name: Check outputs from previous step
         run: |
           printf "Output directory is %s\n" "${OUTPUT_DIR}"
