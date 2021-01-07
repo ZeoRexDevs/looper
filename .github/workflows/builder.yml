@@ -33,9 +33,9 @@ jobs:
         run: |
           printenv | sort
           echo -e "\n\n"
-          cat ${GITHUB_ENV}
+          file ${GITHUB_ENV}; cat ${GITHUB_ENV}
           echo -e "\n\n"
-          cat ${GITHUB_PATH}
+          file ${GITHUB_PATH}; cat ${GITHUB_PATH}
           echo -e "\n\n"
           ls -lAog /home/runner/bin/ || true
           echo -e "\n\n"
