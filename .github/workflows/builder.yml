@@ -1,0 +1,60 @@
+name: 'Recovery Builder'
+
+on:
+  push:
+    branches: [ main ]
+    paths-ignore: 'README.md'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-20.04
+
+    env:
+      # Change these values in you are Forking the repo for own use
+      GitHubMail: "rokibhasansagar2014@outlook.com"
+      GitHubName: "rokibhasansagar"
+
+    steps:
+      # Set Git Configs
+      - name: Set Git Configs & Secrets
+        run: |
+          git config --global user.email ${GitHubMail}
+          git config --global user.name ${GitHubName}
+          git config --global credential.helper store
+          echo "https://${GitHubName}:${{ secrets.GH_TOKEN }}@github.com" > ~/.git-credentials
+      # Checkout this repository
+      - uses: actions/checkout@v2
+      # Cleanup The Workspace Using Custom Composite Run Actions
+      - uses: rokibhasansagar/slimhub_actions@main
+      # Initialize Build Environment
+      - uses: rokibhasansagar/build-env_actions@main
+      # Repo sync and Build Recovery/Boot Image
+      # It tries to output `${OUTPUT_DIR}` as a environment variable for later use
+      - uses: rokibhasansagar/recovery-builder_actions@main
+        with:
+          # If you want to retain any of these variables for next steps, use them in jobs.env instead
+          MANIFEST_URL: 'https://github.com/PitchBlackRecoveryProject/manifest_pb'
+          MANIFEST_BRANCH: 'android-6.0'
+          # EXCL_GRP: ''
+          DT_LINK: 'https://github.com/PitchBlackRecoveryProject/android_device_WALTON_Primo_RX5'
+          DT_BR: 'android-6.0-dev'
+          VENDOR: 'WALTON'
+          CODENAME: 'Primo_RX5'
+          # KERNEL_LINK: ''
+          # KERNEL_BR: ''
+          FLAVOR: 'userdebug'
+          TARGET: 'recoveryimage'
+      - name: Check outputs from previous step
+        run: |
+          printf "Output directory is %s\n" "${OUTPUT_DIR}"
+          ls -lAog ${OUTPUT_2DIR} || true
+          printf "See all envs for debugging...\n\n"
+          printenv | sort 
+      - uses: actions/upload-artifact@v2
+        with:
+          name: my-builds
+          path: |
+            android/out/target/product/*/*.img
+            android/out/target/product/*/*.zip
+            ${OUTPUT_DIR}/*.img
