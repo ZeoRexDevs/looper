@@ -15,24 +15,14 @@ jobs:
 
     steps:
       - uses: actions/checkout@v2
-      - uses: rokibhasansagar/actions_cleanup-ghactions@v1
-      - name: Install Expect
-        run: sudo apt-get install -qy expect
+      - uses: rokibhasansagar/slimhub_actions@main
+      - uses: rokibhasansagar/build-env_actions@main
+      - name: df
+        run: df -lT -t ext4
       - name: Keepalive
-        timeout-minutes: 140
+        timeout-minutes: 20
         run: |
           while true; do
             printf ".\n" && sleep 1200
           done
           git --version
-      - name: Expect
-        timeout-minutes: 340
-        run: |
-          expect -c "
-          set timeout -1
-          spawn git --help
-          "
-          git --version
-        #  spawn git --help
-        #  set timeout -1
-        #  interact"
