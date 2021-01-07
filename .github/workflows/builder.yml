@@ -31,6 +31,8 @@ jobs:
       - uses: rokibhasansagar/build-env_actions@main
       - name: test
         run: |
+          set -v
+          source /home/runner/.bashrc
           printenv | sort
           echo -e "\n\n"
           file ${GITHUB_ENV}; cat ${GITHUB_ENV}
@@ -41,6 +43,7 @@ jobs:
           echo -e "\n\n"
           which repo || command -v repo
           echo -e "\n\n"
+          set +v
       # Repo sync and Build Recovery/Boot Image
       # It tries to output `${OUTPUT_DIR}` as a environment variable for later use
       - uses: rokibhasansagar/recovery-builder_actions@main
