@@ -31,7 +31,7 @@ jobs:
       - uses: rokibhasansagar/build-env_actions@main
       # Repo sync and Build Recovery/Boot Image
       # It tries to output `output_dir` as environment variable for later use
-      - id:: 'builder'
+      - id: 'builder'
         uses: rokibhasansagar/recovery-builder_actions@main
         with:
           # If you want to retain any of these variables for next steps, use them in jobs.env instead
@@ -48,6 +48,8 @@ jobs:
           target: 'recoveryimage'
       - name: Check outputs from previous step
         run: |
+          echo ${{ steps.builder.output.output_dir }} || echo "first error"
+          echo ${{ steps.builder.outputs.output_dir }} || echo "second error"
           printf "Output directory is %s\n" "${OUTPUT_DIR}"
           ls -lAog ${OUTPUT_2DIR} || true
           printf "See all envs for debugging...\n\n"
