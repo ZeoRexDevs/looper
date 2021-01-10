@@ -42,8 +42,8 @@ jobs:
         env:
           # If you want to retain any of these variables for next steps, use them in jobs.env instead
           project_dir: 'android'
-          manifest_url: 'https://github.com/PitchBlackRecoveryProject/manifest_pb'
-          manifest_branch: 'android-6.0'
+          manifest_url: 'https://github.com/OmniROM-Legacy/minimal_manifest_twrp_omni'
+          manifest_branch: 'twrp-6.0'
           # EXCL_GRP: ''
           dt_link: 'https://github.com/PitchBlackRecoveryProject/android_device_WALTON_Primo_RX5'
           dt_br: 'android-6.0-dev'
