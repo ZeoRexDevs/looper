@@ -26,15 +26,22 @@ jobs:
       # Checkout this repository
       - uses: actions/checkout@v2
       # Cleanup The Workspace Using Custom Composite Run Actions
-      #- uses: rokibhasansagar/slimhub_actions@main
+      - uses: rokibhasansagar/slimhub_actions@main
       # Initialize Build Environment
       - uses: rokibhasansagar/build-env_actions@main
       # Repo sync and Build Recovery/Boot Image
       # It tries to output `output_dir` as environment variable for later use
-      - id: 'builder'
-        uses: rokibhasansagar/recovery-builder_actions@main
-        with:
+      - name: Recovery Builder
+        run: |
+          curl -sL https://github.com/rokibhasansagar/recovery-builder_actions/raw/main/build.sh | bash
+          # Exports for next steps
+          echo "project_dir=${project_dir}" >> $GITHUB_ENV
+          echo "vendor=${vendor}" >> $GITHUB_ENV
+          echo "codename=${codename}" >> $GITHUB_ENV
+          echo "OUTPUT_DIR=$(echo ${project_dir}/out/target/product/$codename)" >> $GITHUB_ENV
+        env:
           # If you want to retain any of these variables for next steps, use them in jobs.env instead
+          project_dir: 'android'
           manifest_url: 'https://github.com/PitchBlackRecoveryProject/manifest_pb'
           manifest_branch: 'android-6.0'
           # EXCL_GRP: ''
@@ -46,14 +53,6 @@ jobs:
           # KERNEL_BR: ''
           flavor: 'userdebug'
           target: 'recoveryimage'
-      - name: Check outputs from previous step
-        run: |
-          echo ${{ steps.builder.output.output_dir }} || echo "first error"
-          echo ${{ steps.builder.outputs.output_dir }} || echo "second error"
-          printf "Output directory is %s\n" "${OUTPUT_DIR}"
-          ls -lAog ${OUTPUT_2DIR} || true
-          printf "See all envs for debugging...\n\n"
-          printenv | sort 
       - uses: actions/upload-artifact@v2
         with:
           name: my-builds
