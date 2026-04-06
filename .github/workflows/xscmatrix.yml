@@ -21,19 +21,19 @@ on:
           - windows-2025
           - windows-2022
           - windows-11-arm
+          - macos-26-intel
           - macos-26
           - macos-15-intel
           - macos-15
-          - macos-14
       TotalJobCount:
-        description: Number of jobs (2–10)
+        description: Number of jobs (2–16)
         required: true
         default: "2"
         type: choice
-        options: ["2","3","4","5","6","7","8","9","10"]
+        options: ["2","3","4","5","6","7","8","9","10","11","12","13","14","15","16"]
       CommonVars: { description: "Pipe-delimited Common KEY=VAL", type: string }
       DistributedVar:
-        description: "Distributed array variable (e.g. z={01..10} or z=({01..10}))"
+        description: "Distributed arrays (e.g. x={01..16}|y=({a..p}))"
         type: string
       JobAVars: { description: "Job A vars as KEY=VAL", type: string }
       JobBVars: { description: "Job B vars as KEY=VAL", type: string }
@@ -45,6 +45,12 @@ on:
       JobHVars: { description: "Job H vars as KEY=VAL", type: string }
       JobIVars: { description: "Job I vars as KEY=VAL", type: string }
       JobJVars: { description: "Job J vars as KEY=VAL", type: string }
+      JobKVars: { description: "Job K vars as KEY=VAL", type: string }
+      JobLVars: { description: "Job L vars as KEY=VAL", type: string }
+      JobMVars: { description: "Job M vars as KEY=VAL", type: string }
+      JobNVars: { description: "Job N vars as KEY=VAL", type: string }
+      JobOVars: { description: "Job O vars as KEY=VAL", type: string }
+      JobPVars: { description: "Job P vars as KEY=VAL", type: string }
 
 defaults:
   run:
@@ -64,6 +70,12 @@ env:
   JobHVars: ${{ github.event.inputs.JobHVars }}
   JobIVars: ${{ github.event.inputs.JobIVars }}
   JobJVars: ${{ github.event.inputs.JobJVars }}
+  JobKVars: ${{ github.event.inputs.JobKVars }}
+  JobLVars: ${{ github.event.inputs.JobLVars }}
+  JobMVars: ${{ github.event.inputs.JobMVars }}
+  JobNVars: ${{ github.event.inputs.JobNVars }}
+  JobOVars: ${{ github.event.inputs.JobOVars }}
+  JobPVars: ${{ github.event.inputs.JobPVars }}
   RCLONE_CONFIG_HASH: ${{ secrets.RCLONE_CONFIG_HASH }}
   GitToken: ${{ secrets.GH_TOKEN }}
 
@@ -72,45 +84,52 @@ jobs:
     runs-on: ubuntu-slim
     outputs:
       matrix: ${{ steps.mk.outputs.matrix }}
-      dist_name: ${{ steps.mk.outputs.dist_name }}
     steps:
       - id: mk
         name: Matrix Builder
         run: |
-          arr=(A B C D E F G H I J)
+          arr=(A B C D E F G H I J K L M N O P)
           max=${{ github.event.inputs.TotalJobCount }}
           dist_input="$DistributedVar"
 
-          # 1. Safely evaluate the requested array expansion
-          var_name=""
-          var_vals=()
-          if [[ -n "$dist_input" && "$dist_input" == *"="* ]]; then
-            var_name="${dist_input%%=*}"
-            exp="${dist_input#*=}"
+          # 1. Parse and evaluate all piped distributed arrays beforehand
+          var_names=()
+          if [[ -n "$dist_input" ]]; then
+            IFS='|' read -ra DIST_PAIRS <<< "$dist_input"
+            for pair in "${DIST_PAIRS[@]}"; do
+              if [[ "$pair" == *"="* ]]; then
+                v_name="${pair%%=*}"
+                exp="${pair#*=}"
+                var_names+=("$v_name")
+                
+                # Catch both input types: z={01..16} and z=({01..16})
+                if [[ "$exp" == \(*\)* ]]; then
+                  eval "dist_arr_${v_name}=$exp"
+                else
+                  eval "dist_arr_${v_name}=( $exp )"
+                fi
+              fi
+            done
+          fi
 
-            # Catch both input types: z={01..10} and z=({01..10})
-            if [[ "$exp" == \(*\)* ]]; then
-              eval "var_vals=$exp"
-            else
-              eval "var_vals=( $exp )"
-            fi
-          fi
-
-          # Pass the dynamic variable name to the runners
-          echo "dist_name=$var_name" >> "$GITHUB_OUTPUT"
-
-          # 2. Build JSON array of objects to map JobID and Array Value natively
-          matrix_json="["
-          for (( i=0; i<max; i++ )); do
-            job_id="${arr[$i]}"
-            val="${var_vals[$i]:-}" # Inherits empty string if array runs out of values
-
-            if [[ $i -gt 0 ]]; then matrix_json+=","; fi
-            matrix_json+='{"JobID":"'"$job_id"'", "DistVal":"'"$val"'"}'
-          done
-          matrix_json+="]"
-
-          echo "matrix=$matrix_json" >> "$GITHUB_OUTPUT"
+          # 2. Build JSON array of objects to map JobID and Array Values natively
+          matrix_json="["
+          for (( i=0; i<max; i++ )); do
+            job_id="${arr[$i]}"
+            dist_vars_for_job=""
+            
+            for v_name in "${var_names[@]}"; do
+              # Access the i-th element of our dynamic array safely
+              eval "val=\${dist_arr_${v_name}[$i]:-}"
+              
+              if [[ -n "$dist_vars_for_job" ]]; then dist_vars_for_job+="|"; fi
+              dist_vars_for_job+="${v_name}=${val}"
+            done
+            if [[ $i -gt 0 ]]; then matrix_json+=","; fi
+            matrix_json+='{"JobID":"'"$job_id"'", "DistVars":"'"$dist_vars_for_job"'"}'
+          done
+          matrix_json+="]"
+          echo "matrix=$matrix_json" >> "$GITHUB_OUTPUT"
 
   matrix_runner:
     needs: matrix_builder
@@ -123,8 +142,7 @@ jobs:
 
     env:
       JobID: ${{ matrix.JobID }}
-      DistVal: ${{ matrix.DistVal }}
-      DistName: ${{ needs.matrix_builder.outputs.dist_name }}
+      DistVars: ${{ matrix.DistVars }}
 
     steps:
       - uses: actions/checkout@v6
@@ -154,11 +172,25 @@ jobs:
             fi
           }
 
-          # 4. Export the distributed variable if it was provided
-          if [[ -n "$DistName" && -n "$DistVal" ]]; then
-            export "$DistName"="$DistVal"
-            print_trace "Distributed" "$DistName" "$DistVal"
+          # 4. Export the distributed variables if provided
+          if [[ -n "$DistVars" ]]; then
+            while IFS='=' read -r k v; do
+              [[ -z "$k" ]] && continue
+              export "$k"="${v//\"/}"
+              print_trace "Distributed" "$k" "${!k}"
+            done < <(sed 's/|/\n/g' <<<"$DistVars")
           fi
+
+          if [[ -n "$CommonVars" ]]; then
+            while IFS='=' read -r k v; do
+              [[ -z "$k" ]] && continue
+              export "$k"="${v//\"/}"
+              print_trace "Common" "$k" "${!k}"
+            done < <(sed 's/|/\n/g' <<<"$CommonVars")
+          fi
+
+          dyn="Job${JobID}Vars"
+          JobCustomVars="${!dyn}"
 
           if [[ -n "$CommonVars" ]]; then
             while IFS='=' read -r k v; do
