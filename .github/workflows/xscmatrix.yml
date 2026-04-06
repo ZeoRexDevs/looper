@@ -4,6 +4,17 @@ run-name: xScript Matrix
 on:
   workflow_dispatch:
     inputs:
+      DryRun:
+        description: "Dry Run (print variables, skip script execution)"
+        type: boolean
+        default: false
+      DistMode:
+        description: "Distribution Mode"
+        type: choice
+        default: serialize
+        options:
+          - serialize
+          - multiplex
       ScriptURL:
         description: Script URL (?a=1&b=2)
         required: true
@@ -26,14 +37,13 @@ on:
           - macos-15-intel
           - macos-15
       TotalJobCount:
-        description: Number of jobs (2–16)
-        required: true
+        description: Max serialized jobs (Ignored in multiplex mode)
         default: "2"
         type: choice
         options: ["2","3","4","5","6","7","8","9","10","11","12","13","14","15","16"]
       CommonVars: { description: "Pipe-delimited Common KEY=VAL", type: string }
       DistributedVar:
-        description: "Distributed arrays (e.g. x={01..16}|y=({a..p}))"
+        description: "Distributed Arrays (e.g. x={1,2}|y={a,b})"
         type: string
       JobAVars: { description: "Job A vars as KEY=VAL", type: string }
       JobBVars: { description: "Job B vars as KEY=VAL", type: string }
@@ -57,6 +67,8 @@ defaults:
     shell: bash
 
 env:
+  DryRun: ${{ github.event.inputs.DryRun }}
+  DistMode: ${{ github.event.inputs.DistMode }}
   ScriptURL: ${{ github.event.inputs.ScriptURL }}
   CommonVars: ${{ github.event.inputs.CommonVars }}
   DistributedVar: ${{ github.event.inputs.DistributedVar }}
@@ -88,47 +100,73 @@ jobs:
       - id: mk
         name: Matrix Builder
         run: |
-          arr=(A B C D E F G H I J K L M N O P)
+          # Generate alphabet A through Z for Job IDs dynamically
+          arr=({A..Z})
           max=${{ github.event.inputs.TotalJobCount }}
           dist_input="$DistributedVar"
+          mode="$DistMode"
 
-          # 1. Parse and evaluate all piped distributed arrays beforehand
-          var_names=()
-          if [[ -n "$dist_input" ]]; then
-            IFS='|' read -ra DIST_PAIRS <<< "$dist_input"
-            for pair in "${DIST_PAIRS[@]}"; do
-              if [[ "$pair" == *"="* ]]; then
-                v_name="${pair%%=*}"
-                exp="${pair#*=}"
-                var_names+=("$v_name")
-                
-                # Catch both input types: z={01..16} and z=({01..16})
-                if [[ "$exp" == \(*\)* ]]; then
-                  eval "dist_arr_${v_name}=$exp"
-                else
-                  eval "dist_arr_${v_name}=( $exp )"
+          matrix_json="["
+
+          # MULTIPLEX MODE: Cartesian Product via bash brace expansion
+          if [[ "$mode" == "multiplex" && -n "$dist_input" ]]; then
+
+            # Remove any wrapping parentheses (e.g., convert `x=({1..5})` to `x={1..5}`)
+            clean_input="${dist_input//[()]/}"
+
+            # Escape pipes so bash expands them as a unified string
+            multi_str="${clean_input//|/\\|}"
+
+            # Evaluate brace expansion natively (generates Cartesian product)
+            eval "combinations=( $multi_str )"
+
+            for (( i=0; i<${#combinations[@]}; i++ )); do
+              # Map to A-Z. If combinations > 26, fallback to numerical e.g., Job26
+              job_id="${arr[$i]:-Job$i}"
+              dist_vars_for_job="${combinations[$i]}"
+
+              if [[ $i -gt 0 ]]; then matrix_json+=","; fi
+              matrix_json+='{"JobID":"'"$job_id"'", "DistVars":"'"$dist_vars_for_job"'"}'
+            done
+
+          # SERIALIZE MODE: Parallel Zip up to `TotalJobCount`
+          else
+            var_names=()
+            if [[ -n "$dist_input" ]]; then
+              IFS='|' read -ra DIST_PAIRS <<< "$dist_input"
+              for pair in "${DIST_PAIRS[@]}"; do
+                if [[ "$pair" == *"="* ]]; then
+                  v_name="${pair%%=*}"
+                  exp="${pair#*=}"
+                  var_names+=("$v_name")
+
+                  if [[ "$exp" == \(*\)* ]]; then
+                    eval "dist_arr_${v_name}=$exp"
+                  else
+                    eval "dist_arr_${v_name}=( $exp )"
+                  fi
                 fi
-              fi
+              done
+            fi
+
+            for (( i=0; i<max; i++ )); do
+              job_id="${arr[$i]:-Job$i}"
+              dist_vars_for_job=""
+
+              for v_name in "${var_names[@]}"; do
+                eval "val=\${dist_arr_${v_name}[$i]:-}"
+
+                if [[ -n "$dist_vars_for_job" ]]; then dist_vars_for_job+="|"; fi
+                dist_vars_for_job+="${v_name}=${val}"
+              done
+
+              if [[ $i -gt 0 ]]; then matrix_json+=","; fi
+              matrix_json+='{"JobID":"'"$job_id"'", "DistVars":"'"$dist_vars_for_job"'"}'
             done
           fi
 
-          # 2. Build JSON array of objects to map JobID and Array Values natively
-          matrix_json="["
-          for (( i=0; i<max; i++ )); do
-            job_id="${arr[$i]}"
-            dist_vars_for_job=""
-            
-            for v_name in "${var_names[@]}"; do
-              # Access the i-th element of our dynamic array safely
-              eval "val=\${dist_arr_${v_name}[$i]:-}"
-              
-              if [[ -n "$dist_vars_for_job" ]]; then dist_vars_for_job+="|"; fi
-              dist_vars_for_job+="${v_name}=${val}"
-            done
-            if [[ $i -gt 0 ]]; then matrix_json+=","; fi
-            matrix_json+='{"JobID":"'"$job_id"'", "DistVars":"'"$dist_vars_for_job"'"}'
-          done
           matrix_json+="]"
+
           echo "matrix=$matrix_json" >> "$GITHUB_OUTPUT"
 
   matrix_runner:
@@ -137,7 +175,6 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # 3. Using `include` forces the runner to absorb the JSON keys as direct matrix variables
         include: ${{ fromJson(needs.matrix_builder.outputs.matrix) }}
 
     env:
@@ -159,7 +196,6 @@ jobs:
 
           echo "=== Environment Variable Trace ==="
 
-          # Helper function to print and mask sensitive vars
           print_trace() {
             local prefix="$1"
             local key="$2"
@@ -172,7 +208,6 @@ jobs:
             fi
           }
 
-          # 4. Export the distributed variables if provided
           if [[ -n "$DistVars" ]]; then
             while IFS='=' read -r k v; do
               [[ -z "$k" ]] && continue
@@ -180,17 +215,6 @@ jobs:
               print_trace "Distributed" "$k" "${!k}"
             done < <(sed 's/|/\n/g' <<<"$DistVars")
           fi
-
-          if [[ -n "$CommonVars" ]]; then
-            while IFS='=' read -r k v; do
-              [[ -z "$k" ]] && continue
-              export "$k"="${v//\"/}"
-              print_trace "Common" "$k" "${!k}"
-            done < <(sed 's/|/\n/g' <<<"$CommonVars")
-          fi
-
-          dyn="Job${JobID}Vars"
-          JobCustomVars="${!dyn}"
 
           if [[ -n "$CommonVars" ]]; then
             while IFS='=' read -r k v; do
@@ -218,6 +242,11 @@ jobs:
           fi
 
           echo "=================================="
+
+          if [[ "$DryRun" == "true" ]]; then
+            echo "🛑 Dry Run Enabled: Variables parsed successfully. Exiting before script execution."
+            exit 0
+          fi
 
           [[ "$root" == true ]] && executorPrefix="sudo"
 
