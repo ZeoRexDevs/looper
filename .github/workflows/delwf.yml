@@ -19,7 +19,7 @@ jobs:
     permissions:
       actions: write
     steps:
-      - uses: igorjs/gh-actions-clean-workflow@v7
+      - uses: igorjs/gh-actions-clean-workflow@v8
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           runs_older_than: ${{ github.event.inputs.runs_older_than || env.SCHEDULED_RUNS_OLDER_THAN }} # optional
